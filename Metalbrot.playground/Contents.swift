@@ -1,4 +1,4 @@
-import XCPlayground
+import PlaygroundSupport
 import Cocoa
 import Metal
 /*:
@@ -23,47 +23,46 @@ import Metal
  
  We’ll also need a ***command queue*** to let us send commands to the device, and a [dispatch queue](https://developer.apple.com/library/mac/documentation/General/Conceptual/ConcurrencyProgrammingGuide/OperationQueues/OperationQueues.html) on which we’ll send these commands.
  */
-let device = require(MTLCopyAllDevices().firstWhere{ $0.lowPower } ?? MTLCreateSystemDefaultDevice(),
-                     orDie: "need a Metal device")
+
+let device = require(expr: {
+  MTLCopyAllDevices().first { $0.isLowPower }
+}, message: { "need a Metal device" })
 
 let commandQueue = device.newCommandQueue()
 
-let drawingQueue = dispatch_queue_create("drawingQueue", dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INTERACTIVE, 0))
-
-/*:
- ----
- ***Shaders*** are small programs which run on the graphics card.
- We can load the shader library from a separate file, `Shaders.metal` (which you can find in the left-hand Project navigator (⌘1) under **Resources**), and compile them on the fly for this device. This example uses two shaders, or ***compute kernels***, named `mandelbrotShader` and `juliaShader`.
- */
-let shaderSource = require(try String(contentsOfURL: [#FileReference(fileReferenceLiteral: "Shaders.metal")#]),
-                           orDie: "unable to read shader source file")
-
-let library = require(try device.newLibraryWithSource(shaderSource, options: nil),
-                      orDie: "compiling shaders failed")
+let drawingQueue = DispatchQueue(label: "drawingQueue", qos: DispatchQoS.userInteractive)
+///*:
+// ----
+// ***Shaders*** are small programs which run on the graphics card.
+// We can load the shader library from a separate file, `Shaders.metal` (which you can find in the left-hand Project navigator (⌘1) under **Resources**), and compile them on the fly for this device. This example uses two shaders, or ***compute kernels***, named `mandelbrotShader` and `juliaShader`.
+// */
+let shaderSource = require(expr: { try String(contentsOf: #fileLiteral(resourceName: "Shaders.metal")) },
+                           message: { "unable to read shader source file" })
+let library = require(expr: { try device.newLibrary(withSource: shaderSource, options: nil) },
+                      message: { "compiling shaders failed" })
 
 //: - Experiment: Open up `Shaders.metal` and glance through it to understand what the shaders are doing.
 //: - Important: If your shader has a syntax error, `newLibraryWithSource()` will throw an error here when it tries to compile the program.
 
-let mandelbrotShader = require(library.newFunctionWithName("mandelbrotShader"),
-                               orDie: "unable to get mandelbrotShader")
+let mandelbrotShader = require(expr: { library.newFunction(withName: "mandelbrotShader") },
+                               message: {"unable to get mandelbrotShader" })
 
-let juliaShader = require(library.newFunctionWithName("juliaShader"),
-                          orDie: "unable to get juliaShader")
+let juliaShader = require(expr: { library.newFunction(withName: "juliaShader") },
+                          message: { "unable to get juliaShader" })
 
 //: The Julia set shader also needs some extra input, an *(x, y)* point, from the CPU. We can pass this via a shared buffer.
-let juliaBuffer = device.newBufferWithLength(2 * sizeof(Float32), options: [])
-
+var juliaBuffer = device.newBuffer(withLength: 2 * MemoryLayout<Float32>.size, options: [])
 /*:
  ----
  Before we can use these shaders, Metal needs to know how to request they be executed on the GPU. This information is precomputed and stored as ***compute pipeline state***, which we can reuse repeatedly.
  
  When executing the program, we’ll also have to decide how to utilize the GPU’s threads (how many groups of threads to use, and the number of threads per group). This will depend on the size of the view we want to draw into.
  */
-let mandelbrotPipelineState = require(try device.newComputePipelineStateWithFunction(mandelbrotShader),
-                                      orDie: "unable to create compute pipeline state")
+let mandelbrotPipelineState = require(expr: { try device.newComputePipelineState(with: mandelbrotShader) },
+                                      message: { "unable to create compute pipeline state" })
 
-let juliaPipelineState = require(try device.newComputePipelineStateWithFunction(juliaShader),
-                                 orDie: "unable to create compute pipeline state")
+let juliaPipelineState = require(expr: { try device.newComputePipelineState(with: juliaShader) },
+                                 message: { "unable to create compute pipeline state" })
 
 var threadgroupSizes = ThreadgroupSizes.zeros  // To be calculated later
 
@@ -86,7 +85,7 @@ let metalLayer = metalView.metalLayer
  */
 func drawMandelbrotSet()
 {
-    dispatch_async(drawingQueue) {
+    drawingQueue.sync {
         commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
             $0.setComputePipelineState(mandelbrotPipelineState)
         }
@@ -95,54 +94,55 @@ func drawMandelbrotSet()
 
 func drawJuliaSet(point: CGPoint)
 {
-    dispatch_async(drawingQueue) {
+    drawingQueue.sync() {
         commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
             $0.setComputePipelineState(juliaPipelineState)
-            
             // Pass the (x,y) coordinates of the clicked point via the buffer we allocated ahead of time.
-            $0.setBuffer(juliaBuffer, offset: 0, atIndex: 0)
-            let buf = UnsafeMutablePointer<Float32>(juliaBuffer.contents())
+            $0.setBuffer(juliaBuffer, offset: 0, at: 0)
+            // TODO - Is my new line quivelent?
+            // let buf = UnsafeMutablePointer<Float32>(juliaBuffer.contents())
+            let buf = juliaBuffer.contents().bindMemory(to: Float32.self, capacity: 10)
             buf[0] = Float32(point.x)
             buf[1] = Float32(point.y)
         }
     }
 }
 /*:
- - Experiment:
- Go check out the implementation of `computeAndDraw`! Can you understand how it works?
- 
- ----
- ### The easy part
- Now for some user interaction! Our view controller draws fractals when the view is first laid out, and whenever the mouse is dragged (user interaction requires Xcode 7.3).
- */
+// - Experiment:
+// Go check out the implementation of `computeAndDraw`! Can you understand how it works?
+// 
+// ----
+// ### The easy part
+// Now for some user interaction! Our view controller draws fractals when the view is first laid out, and whenever the mouse is dragged (user interaction requires Xcode 7.3).
+// */
 class Controller: NSViewController, MetalViewDelegate
 {
     override func viewDidLayout() {
-        metalViewDrawableSizeDidChange(metalView)
+        metalViewDrawableSizeDidChange(metalView: metalView)
     }
     func metalViewDrawableSizeDidChange(metalView: MetalView) {
         // This helper function chooses how to assign the GPU’s threads to portions of the texture.
-        threadgroupSizes = mandelbrotPipelineState.threadgroupSizesForDrawableSize(metalView.metalLayer.drawableSize)
+        threadgroupSizes = mandelbrotPipelineState.threadgroupSizesForDrawableSize(drawableSize: metalView.metalLayer.drawableSize)
         drawMandelbrotSet()
     }
-    
-    override func mouseDown(event: NSEvent) {
-        drawJuliaSetForEvent(event)
+
+    override func mouseDown(with: NSEvent) {
+        drawJuliaSetForEvent(event: with)
     }
-    override func mouseDragged(event: NSEvent) {
-        drawJuliaSetForEvent(event)
+    override func mouseDragged(with: NSEvent) {
+        drawJuliaSetForEvent(event: with)
     }
-    override func mouseUp(event: NSEvent) {
+    override func mouseUp(with: NSEvent) {
         drawMandelbrotSet()
     }
     
     func drawJuliaSetForEvent(event: NSEvent) {
-        var pos = metalView.convertPointToLayer(metalView.convertPoint(event.locationInWindow, fromView: nil))
+        var pos = metalView.convertToLayer(metalView.convert(event.locationInWindow, from: nil))
         let scale = metalLayer.contentsScale
         pos.x *= scale
         pos.y *= scale
         
-        drawJuliaSet(pos)
+        drawJuliaSet(point: pos)
     }
 }
 
@@ -151,9 +151,9 @@ let controller = Controller()
 controller.view = metalView
 metalView.delegate = controller
 
-metalView.addSubview(Label(string: "Click me! (requires Xcode 7.3)"), at: CGPoint(x: 5, y: 5))
+metalView.addSubview(subview: Label(string: "Click me! (requires Xcode 7.3)"), at: CGPoint(x: 5, y: 5))
 
-XCPlaygroundPage.currentPage.liveView = metalView
+PlaygroundPage.current.liveView = metalView
 
 /*:
  ----
