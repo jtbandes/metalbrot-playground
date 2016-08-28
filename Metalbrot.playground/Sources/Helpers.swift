@@ -1,6 +1,7 @@
-import XCPlayground
+import PlaygroundSupport
 import Cocoa
 import Metal
+
 
 /// A view which is backed by a CAMetalLayer, automatically updating its drawableSize and contentsScale as appropriate.
 public class MetalView: NSView
@@ -21,7 +22,7 @@ public class MetalView: NSView
         return metalLayer
     }
     
-    public override func layer(layer: CALayer, shouldInheritContentsScale newScale: CGFloat, fromWindow window: NSWindow) -> Bool {
+    public override func layer(_ layer: CALayer, shouldInheritContentsScale newScale: CGFloat, from window: NSWindow) -> Bool {
         updateDrawableSize(contentsScale: newScale)
         return true
     }
@@ -31,7 +32,7 @@ public class MetalView: NSView
         size.width *= scale
         size.height *= scale
         metalLayer.drawableSize = size
-        delegate?.metalViewDrawableSizeDidChange(self)
+        delegate?.metalViewDrawableSizeDidChange(metalView: self)
     }
 }
 
@@ -77,7 +78,7 @@ public extension MTLCommandQueue
     /// presents the results.
     ///
     /// - Requires: `drawBlock` must call `setComputePipelineState` on the command encoder to select a compute function.
-    func computeAndDraw(@autoclosure into drawable: () -> CAMetalDrawable?, with threadgroupSizes: ThreadgroupSizes, @noescape drawBlock: MTLComputeCommandEncoder -> Void)
+    func computeAndDraw( into drawable: @autoclosure () -> CAMetalDrawable?, with threadgroupSizes: ThreadgroupSizes, drawBlock: (MTLComputeCommandEncoder) -> Void)
     {
         if threadgroupSizes.hasZeroDimension {
             print("dimensions are zero; not drawing")
@@ -92,14 +93,14 @@ public extension MTLCommandQueue
             
             let buffer = self.commandBuffer()
             let encoder = buffer.computeCommandEncoder()
-            encoder.setTexture(drawable.texture, atIndex: 0)
+            encoder.setTexture(drawable.texture, at: 0)
             
             drawBlock(encoder)
             
             encoder.dispatchThreadgroups(threadgroupSizes.threadgroupsPerGrid, threadsPerThreadgroup: threadgroupSizes.threadsPerThreadgroup)
             encoder.endEncoding()
             
-            buffer.presentDrawable(drawable)
+            buffer.present(drawable)
             buffer.commit()
             buffer.waitUntilCompleted()
         }
@@ -165,7 +166,7 @@ public extension MTLComputePipelineState
         }
         
         // Choose the threadgroup sizes which waste the least amount of execution time/power.
-        let result = candidates.minElement { _estimatedUnderutilization($0) < _estimatedUnderutilization($1) }
+        let result = candidates.min { _estimatedUnderutilization(s: $0) < _estimatedUnderutilization(s: $1) }
         return result ?? .zeros
     }
 }
@@ -173,7 +174,7 @@ public extension MTLComputePipelineState
 
 /// Playground helper: produce the value of `expr`, or print the given `message` and exit.
 /// If `expr` throws an error, the error is also printed.
-public func require<T>(@autoclosure expr: () throws -> T?, @autoclosure orDie message: () -> String) -> T
+public func require<T>(expr: () throws -> T?, message: () -> String) -> T
 {
     do {
         if let result = try expr() { return result }
@@ -183,14 +184,14 @@ public func require<T>(@autoclosure expr: () throws -> T?, @autoclosure orDie me
         print(message())
         print("error: \(error)")
     }
-    XCPlaygroundPage.currentPage.finishExecution()
+    PlaygroundPage.current.finishExecution()
 }
 
 
-public extension SequenceType
+public extension Sequence
 {
     /// - Returns: The first element in `self` which matches the given `predicate`.
-    func firstWhere(@noescape predicate: Generator.Element throws -> Bool) rethrows -> Generator.Element?
+    func firstWhere( predicate: (Iterator.Element) throws -> Bool) rethrows -> Iterator.Element?
     {
         return try lazy.filter(predicate).first
     }
@@ -213,11 +214,11 @@ public class Label: NSTextField
     
     public init(string: String) {
         super.init(frame: .zero)
-        selectable = false
-        editable = false
-        bordered = false
+        isSelectable = false
+        isEditable = false
+        isBordered = false
         drawsBackground = false
-        textColor = .whiteColor()
+        textColor = .white
         stringValue = string
         sizeToFit()
     }
