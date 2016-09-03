@@ -1,4 +1,4 @@
-import XCPlayground
+import PlaygroundSupport
 import Cocoa
 import Metal
 
@@ -21,7 +21,7 @@ public class MetalView: NSView
         return metalLayer
     }
     
-    public override func layer(layer: CALayer, shouldInheritContentsScale newScale: CGFloat, fromWindow window: NSWindow) -> Bool {
+    public override func layer(_ layer: CALayer, shouldInheritContentsScale newScale: CGFloat, from window: NSWindow) -> Bool {
         updateDrawableSize(contentsScale: newScale)
         return true
     }
@@ -38,7 +38,7 @@ public class MetalView: NSView
 
 public protocol MetalViewDelegate: class
 {
-    func metalViewDrawableSizeDidChange(metalView: MetalView)
+    func metalViewDrawableSizeDidChange(_ metalView: MetalView)
 }
 
 
@@ -77,7 +77,7 @@ public extension MTLCommandQueue
     /// presents the results.
     ///
     /// - Requires: `drawBlock` must call `setComputePipelineState` on the command encoder to select a compute function.
-    func computeAndDraw(@autoclosure into drawable: () -> CAMetalDrawable?, with threadgroupSizes: ThreadgroupSizes, @noescape drawBlock: MTLComputeCommandEncoder -> Void)
+    func computeAndDraw(into drawable: @autoclosure () -> CAMetalDrawable?, with threadgroupSizes: ThreadgroupSizes, drawBlock: (MTLComputeCommandEncoder) -> Void)
     {
         if threadgroupSizes.hasZeroDimension {
             print("dimensions are zero; not drawing")
@@ -92,14 +92,14 @@ public extension MTLCommandQueue
             
             let buffer = self.commandBuffer()
             let encoder = buffer.computeCommandEncoder()
-            encoder.setTexture(drawable.texture, atIndex: 0)
+            encoder.setTexture(drawable.texture, at: 0)
             
             drawBlock(encoder)
             
             encoder.dispatchThreadgroups(threadgroupSizes.threadgroupsPerGrid, threadsPerThreadgroup: threadgroupSizes.threadsPerThreadgroup)
             encoder.endEncoding()
             
-            buffer.presentDrawable(drawable)
+            buffer.present(drawable)
             buffer.commit()
             buffer.waitUntilCompleted()
         }
@@ -119,7 +119,7 @@ public extension MTLComputePipelineState
     ///
     /// If your shader is doing some more interesting calculations, and your threads need to share memory in some
     /// meaningful way, then you’ll probably want to do something less generalized to choose your threadgroups.
-    func threadgroupSizesForDrawableSize(drawableSize: CGSize) -> ThreadgroupSizes
+    func threadgroupSizesForDrawableSize(_ drawableSize: CGSize) -> ThreadgroupSizes
     {
         let waveSize = self.threadExecutionWidth
         let maxThreadsPerGroup = self.maxTotalThreadsPerThreadgroup
@@ -151,7 +151,7 @@ public extension MTLComputePipelineState
         /// Make a rough approximation for how much compute power will be "wasted" (e.g. when the total number
         /// of threads in a group isn’t an even multiple of `threadExecutionWidth`, or when the total number of
         /// threads being dispatched exceeds the drawable size). Smaller is better.
-        func _estimatedUnderutilization(s: ThreadgroupSizes) -> Int {
+        func _estimatedUnderutilization(_ s: ThreadgroupSizes) -> Int {
             let excessWidth = s.threadsPerThreadgroup.width * s.threadgroupsPerGrid.width - drawableWidth
             let excessHeight = s.threadsPerThreadgroup.height * s.threadgroupsPerGrid.height - drawableHeight
             
@@ -165,7 +165,7 @@ public extension MTLComputePipelineState
         }
         
         // Choose the threadgroup sizes which waste the least amount of execution time/power.
-        let result = candidates.minElement { _estimatedUnderutilization($0) < _estimatedUnderutilization($1) }
+        let result = candidates.min { _estimatedUnderutilization($0) < _estimatedUnderutilization($1) }
         return result ?? .zeros
     }
 }
@@ -173,7 +173,7 @@ public extension MTLComputePipelineState
 
 /// Playground helper: produce the value of `expr`, or print the given `message` and exit.
 /// If `expr` throws an error, the error is also printed.
-public func require<T>(@autoclosure expr: () throws -> T?, @autoclosure orDie message: () -> String) -> T
+public func require<T>(_ expr: @autoclosure () throws -> T?, orDie message: @autoclosure () -> String) -> T
 {
     do {
         if let result = try expr() { return result }
@@ -183,23 +183,13 @@ public func require<T>(@autoclosure expr: () throws -> T?, @autoclosure orDie me
         print(message())
         print("error: \(error)")
     }
-    XCPlaygroundPage.currentPage.finishExecution()
-}
-
-
-public extension SequenceType
-{
-    /// - Returns: The first element in `self` which matches the given `predicate`.
-    func firstWhere(@noescape predicate: Generator.Element throws -> Bool) rethrows -> Generator.Element?
-    {
-        return try lazy.filter(predicate).first
-    }
+    PlaygroundPage.current.finishExecution()
 }
 
 
 public extension NSView
 {
-    func addSubview(subview: NSView, at origin: CGPoint)
+    func addSubview(_ subview: NSView, at origin: CGPoint)
     {
         addSubview(subview)
         subview.frame.origin = origin
@@ -213,11 +203,11 @@ public class Label: NSTextField
     
     public init(string: String) {
         super.init(frame: .zero)
-        selectable = false
-        editable = false
-        bordered = false
+        isSelectable = false
+        isEditable = false
+        isBordered = false
         drawsBackground = false
-        textColor = .whiteColor()
+        textColor = .white
         stringValue = string
         sizeToFit()
     }

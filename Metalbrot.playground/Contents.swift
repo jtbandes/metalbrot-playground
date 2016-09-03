@@ -1,10 +1,12 @@
-import XCPlayground
+import PlaygroundSupport
 import Cocoa
 import Metal
 /*:
  ## Drawing Fractals with Minimal Metal
  
  *[Jacob Bandes-Storch](http://bandes-stor.ch/), Feb 2016*
+ 
+ *Sep 2016: Updated for Swift 3*
  
  This playground provides a small interactive example of how to use Metal to render visualizations of [fractals](https://en.wikipedia.org/wiki/Fractal) (namely, the [Mandelbrot set](https://en.wikipedia.org/wiki/Mandelbrot_set) and [Julia sets](https://en.wikipedia.org/wiki/Julia_set)). This certainly isn’t a comprehensive overview of Metal, but hopefully it’s easy to follow and modify. Enjoy!
  
@@ -23,35 +25,39 @@ import Metal
  
  We’ll also need a ***command queue*** to let us send commands to the device, and a [dispatch queue](https://developer.apple.com/library/mac/documentation/General/Conceptual/ConcurrencyProgrammingGuide/OperationQueues/OperationQueues.html) on which we’ll send these commands.
  */
-let device = require(MTLCopyAllDevices().firstWhere{ $0.lowPower } ?? MTLCreateSystemDefaultDevice(),
+let device = require(MTLCopyAllDevices().first{ $0.isLowPower } ?? MTLCreateSystemDefaultDevice(),
                      orDie: "need a Metal device")
 
 let commandQueue = device.newCommandQueue()
 
-let drawingQueue = dispatch_queue_create("drawingQueue", dispatch_queue_attr_make_with_qos_class(DISPATCH_QUEUE_SERIAL, QOS_CLASS_USER_INTERACTIVE, 0))
+let drawingQueue = DispatchQueue(label: "drawingQueue", qos: .userInteractive)
 
 /*:
  ----
  ***Shaders*** are small programs which run on the graphics card.
  We can load the shader library from a separate file, `Shaders.metal` (which you can find in the left-hand Project navigator (⌘1) under **Resources**), and compile them on the fly for this device. This example uses two shaders, or ***compute kernels***, named `mandelbrotShader` and `juliaShader`.
  */
-let shaderSource = require(try String(contentsOfURL: [#FileReference(fileReferenceLiteral: "Shaders.metal")#]),
+
+let shaderSource = require(try String(contentsOf: #fileLiteral(resourceName: "Shaders.metal")),
                            orDie: "unable to read shader source file")
 
-let library = require(try device.newLibraryWithSource(shaderSource, options: nil),
+let library = require(try device.newLibrary(withSource: shaderSource, options: nil),
                       orDie: "compiling shaders failed")
 
-//: - Experiment: Open up `Shaders.metal` and glance through it to understand what the shaders are doing.
-//: - Important: If your shader has a syntax error, `newLibraryWithSource()` will throw an error here when it tries to compile the program.
-
-let mandelbrotShader = require(library.newFunctionWithName("mandelbrotShader"),
+/*:
+- Experiment: Open up `Shaders.metal` and glance through it to understand what the shaders are doing.
+ 
+ 
+- Important: If your shader has a syntax error, `newLibraryWithSource()` will throw an error here when it tries to compile the program.
+*/
+let mandelbrotShader = require(library.newFunction(withName: "mandelbrotShader"),
                                orDie: "unable to get mandelbrotShader")
 
-let juliaShader = require(library.newFunctionWithName("juliaShader"),
+let juliaShader = require(library.newFunction(withName: "juliaShader"),
                           orDie: "unable to get juliaShader")
 
 //: The Julia set shader also needs some extra input, an *(x, y)* point, from the CPU. We can pass this via a shared buffer.
-let juliaBuffer = device.newBufferWithLength(2 * sizeof(Float32), options: [])
+let juliaBuffer = device.newBuffer(withLength: 2 * MemoryLayout<Float32>.size, options: [])
 
 /*:
  ----
@@ -59,10 +65,10 @@ let juliaBuffer = device.newBufferWithLength(2 * sizeof(Float32), options: [])
  
  When executing the program, we’ll also have to decide how to utilize the GPU’s threads (how many groups of threads to use, and the number of threads per group). This will depend on the size of the view we want to draw into.
  */
-let mandelbrotPipelineState = require(try device.newComputePipelineStateWithFunction(mandelbrotShader),
+let mandelbrotPipelineState = require(try device.newComputePipelineState(with: mandelbrotShader),
                                       orDie: "unable to create compute pipeline state")
 
-let juliaPipelineState = require(try device.newComputePipelineStateWithFunction(juliaShader),
+let juliaPipelineState = require(try device.newComputePipelineState(with: juliaShader),
                                  orDie: "unable to create compute pipeline state")
 
 var threadgroupSizes = ThreadgroupSizes.zeros  // To be calculated later
@@ -86,22 +92,22 @@ let metalLayer = metalView.metalLayer
  */
 func drawMandelbrotSet()
 {
-    dispatch_async(drawingQueue) {
+    drawingQueue.async {
         commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
             $0.setComputePipelineState(mandelbrotPipelineState)
         }
     }
 }
 
-func drawJuliaSet(point: CGPoint)
+func drawJuliaSet(_ point: CGPoint)
 {
-    dispatch_async(drawingQueue) {
+    drawingQueue.async {
         commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
             $0.setComputePipelineState(juliaPipelineState)
             
             // Pass the (x,y) coordinates of the clicked point via the buffer we allocated ahead of time.
-            $0.setBuffer(juliaBuffer, offset: 0, atIndex: 0)
-            let buf = UnsafeMutablePointer<Float32>(juliaBuffer.contents())
+            $0.setBuffer(juliaBuffer, offset: 0, at: 0)
+            let buf = juliaBuffer.contents().bindMemory(to: Float32.self, capacity: 2)
             buf[0] = Float32(point.x)
             buf[1] = Float32(point.y)
         }
@@ -120,24 +126,24 @@ class Controller: NSViewController, MetalViewDelegate
     override func viewDidLayout() {
         metalViewDrawableSizeDidChange(metalView)
     }
-    func metalViewDrawableSizeDidChange(metalView: MetalView) {
+    func metalViewDrawableSizeDidChange(_ metalView: MetalView) {
         // This helper function chooses how to assign the GPU’s threads to portions of the texture.
         threadgroupSizes = mandelbrotPipelineState.threadgroupSizesForDrawableSize(metalView.metalLayer.drawableSize)
         drawMandelbrotSet()
     }
     
-    override func mouseDown(event: NSEvent) {
+    override func mouseDown(with event: NSEvent) {
         drawJuliaSetForEvent(event)
     }
-    override func mouseDragged(event: NSEvent) {
+    override func mouseDragged(with event: NSEvent) {
         drawJuliaSetForEvent(event)
     }
-    override func mouseUp(event: NSEvent) {
+    override func mouseUp(with event: NSEvent) {
         drawMandelbrotSet()
     }
     
-    func drawJuliaSetForEvent(event: NSEvent) {
-        var pos = metalView.convertPointToLayer(metalView.convertPoint(event.locationInWindow, fromView: nil))
+    func drawJuliaSetForEvent(_ event: NSEvent) {
+        var pos = metalView.convertToLayer(metalView.convert(event.locationInWindow, from: nil))
         let scale = metalLayer.contentsScale
         pos.x *= scale
         pos.y *= scale
@@ -151,9 +157,9 @@ let controller = Controller()
 controller.view = metalView
 metalView.delegate = controller
 
-metalView.addSubview(Label(string: "Click me! (requires Xcode 7.3)"), at: CGPoint(x: 5, y: 5))
+metalView.addSubview(Label(string: "Click me!"), at: CGPoint(x: 5, y: 5))
 
-XCPlaygroundPage.currentPage.liveView = metalView
+PlaygroundPage.current.liveView = metalView
 
 /*:
  ----
@@ -173,17 +179,22 @@ XCPlaygroundPage.currentPage.liveView = metalView
  
  - Experiment: Tweak the `maxiters` and `escape` parameters in the shader source file. Do the fractals look different? Can you notice any difference in speed? Try modifying the playground to use a discrete graphics card, if your machine has one.
  
+ 
  - Experiment: Adapt this code to display the same fractals on an iOS device. (Metal isn’t supported in the iOS simulator.) You’ll need to use UIView instead of NSView, but most the Metal-related code can remain the same.
  
+ 
  - Experiment: Choose another fractal or another coloring scheme, and modify `Shaders.metal` to render it.
+ 
  
  - Experiment: Add a label which shows the coordinates that were clicked in the complex plane.
      
      Bonus: can you share the code which does this x,y-to-complex conversion between Swift and the shader itself? Try moving things into a full Xcode project and setting up a [bridging header](https://developer.apple.com/library/ios/documentation/Swift/Conceptual/BuildingCocoaApps/MixandMatch.html). You might want to use `#ifdef __cplusplus` and/or `extern "C"`.
  
+ 
  - Experiment: Try using [MTKView](https://developer.apple.com/library/ios/documentation/MetalKit/Reference/MTKView_ClassReference/) instead of the simple `MetalView` in this playground. Use the MTKView’s delegate or a subclass to render each frame, and modify the pipeline so that your fractals can change over time.
      * Try to make the colors change slowly over time.
      * Try to make the visualization zoom in on an [interesting point](https://en.wikipedia.org/wiki/Mandelbrot_set#Image_gallery_of_a_zoom_sequence).
+ 
  
  - Experiment: Use `CIImage.init(MTLTexture:options:)` to render the fractals into an image. Save an animated GIF using [CGImageDestination](http://stackoverflow.com/q/14915138/23649), or a movie using [AVAssetWriter](http://stackoverflow.com/q/3741323/23649).
  */
