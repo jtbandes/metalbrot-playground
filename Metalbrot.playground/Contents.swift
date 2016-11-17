@@ -6,6 +6,7 @@ import Metal
  
  *[Jacob Bandes-Storch](http://bandes-stor.ch/), Feb 2016*
  
+ *Nov 2016: [Updated for Swift 3.0.1 / Xcode 8.1](https://github.com/jtbandes/Metalbrot.playground/pull/2)*  
  *Sep 2016: Updated for Swift 3*
  
  This playground provides a small interactive example of how to use Metal to render visualizations of [fractals](https://en.wikipedia.org/wiki/Fractal) (namely, the [Mandelbrot set](https://en.wikipedia.org/wiki/Mandelbrot_set) and [Julia sets](https://en.wikipedia.org/wiki/Julia_set)). This certainly isn’t a comprehensive overview of Metal, but hopefully it’s easy to follow and modify. Enjoy!
@@ -28,7 +29,7 @@ import Metal
 let device = require(MTLCopyAllDevices().first{ $0.isLowPower } ?? MTLCreateSystemDefaultDevice(),
                      orDie: "need a Metal device")
 
-let commandQueue = device.newCommandQueue()
+let commandQueue = device.makeCommandQueue()
 
 let drawingQueue = DispatchQueue(label: "drawingQueue", qos: .userInteractive)
 
@@ -41,23 +42,23 @@ let drawingQueue = DispatchQueue(label: "drawingQueue", qos: .userInteractive)
 let shaderSource = require(try String(contentsOf: #fileLiteral(resourceName: "Shaders.metal")),
                            orDie: "unable to read shader source file")
 
-let library = require(try device.newLibrary(withSource: shaderSource, options: nil),
+let library = require(try device.makeLibrary(source: shaderSource, options: nil),
                       orDie: "compiling shaders failed")
 
 /*:
 - Experiment: Open up `Shaders.metal` and glance through it to understand what the shaders are doing.
  
  
-- Important: If your shader has a syntax error, `newLibraryWithSource()` will throw an error here when it tries to compile the program.
+- Important: If your shader has a syntax error, `makeLibrary(source:)` will throw an error here when it tries to compile the program.
 */
-let mandelbrotShader = require(library.newFunction(withName: "mandelbrotShader"),
+let mandelbrotShader = require(library.makeFunction(name: "mandelbrotShader"),
                                orDie: "unable to get mandelbrotShader")
 
-let juliaShader = require(library.newFunction(withName: "juliaShader"),
+let juliaShader = require(library.makeFunction(name: "juliaShader"),
                           orDie: "unable to get juliaShader")
 
 //: The Julia set shader also needs some extra input, an *(x, y)* point, from the CPU. We can pass this via a shared buffer.
-let juliaBuffer = device.newBuffer(withLength: 2 * MemoryLayout<Float32>.size, options: [])
+let juliaBuffer = device.makeBuffer(length: 2 * MemoryLayout<Float32>.size, options: [])
 
 /*:
  ----
@@ -65,10 +66,10 @@ let juliaBuffer = device.newBuffer(withLength: 2 * MemoryLayout<Float32>.size, o
  
  When executing the program, we’ll also have to decide how to utilize the GPU’s threads (how many groups of threads to use, and the number of threads per group). This will depend on the size of the view we want to draw into.
  */
-let mandelbrotPipelineState = require(try device.newComputePipelineState(with: mandelbrotShader),
+let mandelbrotPipelineState = require(try device.makeComputePipelineState(function: mandelbrotShader),
                                       orDie: "unable to create compute pipeline state")
 
-let juliaPipelineState = require(try device.newComputePipelineState(with: juliaShader),
+let juliaPipelineState = require(try device.makeComputePipelineState(function: juliaShader),
                                  orDie: "unable to create compute pipeline state")
 
 var threadgroupSizes = ThreadgroupSizes.zeros  // To be calculated later
