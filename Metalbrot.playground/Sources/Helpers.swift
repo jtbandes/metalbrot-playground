@@ -90,8 +90,8 @@ public extension MTLCommandQueue
                 return
             }
             
-            let buffer = self.commandBuffer()
-            let encoder = buffer.computeCommandEncoder()
+            let buffer = self.makeCommandBuffer()
+            let encoder = buffer.makeComputeCommandEncoder()
             encoder.setTexture(drawable.texture, at: 0)
             
             drawBlock(encoder)
