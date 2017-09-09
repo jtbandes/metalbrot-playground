@@ -90,9 +90,11 @@ public extension MTLCommandQueue
                 return
             }
             
-            let buffer = self.makeCommandBuffer()
-            let encoder = buffer.makeComputeCommandEncoder()
-            encoder.setTexture(drawable.texture, at: 0)
+            let buffer = require(self.makeCommandBuffer(),
+                                 orDie: "need a command buffer")
+            let encoder = require(buffer.makeComputeCommandEncoder(),
+                                  orDie: "need a compute command encoder")
+            encoder.setTexture(drawable.texture, index: 0)
             
             drawBlock(encoder)
             
