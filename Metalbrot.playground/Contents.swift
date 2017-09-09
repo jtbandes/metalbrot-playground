@@ -29,7 +29,7 @@ import Metal
 let device = require(MTLCopyAllDevices().first{ $0.isLowPower } ?? MTLCreateSystemDefaultDevice(),
                      orDie: "need a Metal device")
 
-let commandQueue = device.makeCommandQueue()
+let commandQueue = device.makeCommandQueue()!
 
 let drawingQueue = DispatchQueue(label: "drawingQueue", qos: .userInteractive)
 
@@ -58,7 +58,7 @@ let juliaShader = require(library.makeFunction(name: "juliaShader"),
                           orDie: "unable to get juliaShader")
 
 //: The Julia set shader also needs some extra input, an *(x, y)* point, from the CPU. We can pass this via a shared buffer.
-let juliaBuffer = device.makeBuffer(length: 2 * MemoryLayout<Float32>.size, options: [])
+let juliaBuffer = device.makeBuffer(length: 2 * MemoryLayout<Float32>.size, options: [])!
 
 /*:
  ----
@@ -107,7 +107,7 @@ func drawJuliaSet(_ point: CGPoint)
             $0.setComputePipelineState(juliaPipelineState)
             
             // Pass the (x,y) coordinates of the clicked point via the buffer we allocated ahead of time.
-            $0.setBuffer(juliaBuffer, offset: 0, at: 0)
+            $0.setBuffer(juliaBuffer, offset: 0, index: 0)
             let buf = juliaBuffer.contents().bindMemory(to: Float32.self, capacity: 2)
             buf[0] = Float32(point.x)
             buf[1] = Float32(point.y)
