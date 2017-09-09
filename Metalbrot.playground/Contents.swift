@@ -60,7 +60,7 @@ let juliaShader = require(library.makeFunction(name: "juliaShader"),
                           orDie: "unable to get juliaShader")
 
 //: The Julia set shader also needs some extra input, an *(x, y)* point, from the CPU. We can pass this via a shared buffer.
-let juliaBuffer = require(device.makeBuffer(length: 2 * MemoryLayout<Float32>.size, options: []),
+let juliaBuffer = require(device.makeBuffer(length: 2 * MemoryLayout<Float32>.stride),
                           orDie: "need an argument buffer")
 
 /*:
