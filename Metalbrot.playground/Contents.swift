@@ -37,15 +37,11 @@ let drawingQueue = DispatchQueue(label: "drawingQueue", qos: .userInteractive)
 
 /*:
  ----
- ***Shaders*** are small programs which run on the graphics card.
- We can load the shader library from a separate file, `Shaders.metal` (which you can find in the left-hand Project navigator (⌘1) under **Resources**), and compile them on the fly for this device. This example uses two shaders, or ***compute kernels***, named `mandelbrotShader` and `juliaShader`.
+ ***Shaders*** are small programs which run on the graphics card. You can find the sources for them in `Shaders.metal` in the left-hand Project navigator (⌘1) under **Resources**. This example uses two shaders, or ***compute kernels***, named `mandelbrotShader` and `juliaShader`. Xcode compiles the shaders into the bitcode representation understood by the graphics card, which we could use through a ***Library***.
  */
 
-let shaderSource = require(try String(contentsOf: #fileLiteral(resourceName: "Shaders.metal")),
-                           orDie: "unable to read shader source file")
-
-let library = require(try device.makeLibrary(source: shaderSource, options: nil),
-                      orDie: "compiling shaders failed")
+let library = require(device.makeDefaultLibrary(),
+                      orDie: "unable to load shader library")
 
 /*:
 - Experiment: Open up `Shaders.metal` and glance through it to understand what the shaders are doing.
@@ -164,6 +160,8 @@ metalView.delegate = controller
 metalView.addSubview(Label(string: "Click me!"), at: CGPoint(x: 5, y: 5))
 
 PlaygroundPage.current.liveView = metalView
+
+controller.viewDidLayout()
 
 /*:
  ----
