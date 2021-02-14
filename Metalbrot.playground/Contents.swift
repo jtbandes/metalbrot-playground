@@ -5,7 +5,8 @@ import Metal
  ## Drawing Fractals with Minimal Metal
  
  *[Jacob Bandes-Storch](http://bandes-stor.ch/), Feb 2016*
- 
+
+ *Feb 2021: [Updated for Swift 5 / Xcode 12](https://github.com/jtbandes/metalbrot-playground/pull/6)*  
  *Sep 2017: [Updated for Swift 4 / Xcode 9](https://github.com/jtbandes/Metalbrot.playground/pull/4)*  
  *Nov 2016: [Updated for Swift 3.0.1 / Xcode 8.1](https://github.com/jtbandes/Metalbrot.playground/pull/2)*  
  *Sep 2016: Updated for Swift 3*
@@ -14,8 +15,10 @@ import Metal
  
  - Experiment: Click and drag on the fractal. Watch it change from the Mandelbrot set to a Julia set, and morph as you move the mouse. What happens if you click in a black area of the Mandelbrot set, as opposed to a colored area?
  
- - Note: To see the playground output, click the Assistant Editor button in the toolbar, or press ⌥⌘↩, which should display the Timeline. To see the extra functions in `Helpers.swift`, enable the Navigator via the toolbar or by pressing ⌘1.
-     ![navigation](navigation.png)
+ - Note: To see the playground output, enable the playground’s Live View in the editor options, or by pressing ⌥⌘↩. To see the extra functions in `Helpers.swift`, enable the Project Navigator via the toolbar or by pressing ⌘1.
+
+     ![upper left button to open the Navigators](navigation1.png)
+     ![upper right button to open the Live View](navigation2.png)
  
  - Note: This demo only covers using Metal for **compute functions**. There are a lot more complicated things you can do with the full rendering pipeline. Some further reading material is linked at the end of the playground.
  */
