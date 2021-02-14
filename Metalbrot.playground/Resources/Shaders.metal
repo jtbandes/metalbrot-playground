@@ -3,33 +3,35 @@ using namespace metal;
 
 #define M_PI 3.141592653589793238462643383
 
+namespace metalbrot {
+
 /// Basic implementation of complex numbers, with * + - operators, and a function to return the squared magnitude.
 template<typename T>
-struct jjcomplex
+struct complex
 {
     T _x, _y;
 
-    jjcomplex(T x, T y) : _x(x), _y(y) { }
-
+    complex(T x, T y) : _x(x), _y(y) { }
+    
     T sqmag() const {
         return _x*_x + _y*_y;
     }
     
-    jjcomplex<T> operator*(const thread jjcomplex<T>& other) const {
-        return jjcomplex(_x*other._x - _y*other._y,
+    complex<T> operator*(const thread complex<T>& other) const {
+        return complex(_x*other._x - _y*other._y,
                        _x*other._y + _y*other._x);
     }
     
-    jjcomplex<T> operator+(const thread jjcomplex<T>& other) const {
-        return jjcomplex(_x + other._x, _y + other._y);
+    complex<T> operator+(const thread complex<T>& other) const {
+        return complex(_x + other._x, _y + other._y);
     }
     
-    jjcomplex<T> operator-(const thread jjcomplex<T>& other) const {
-        return jjcomplex(_x - other._x, _y - other._y);
+    complex<T> operator-(const thread complex<T>& other) const {
+        return complex(_x - other._x, _y - other._y);
     }
     
-    jjcomplex<T> operator*(const thread T& c) const {
-        return jjcomplex(_x * c, _y * c);
+    complex<T> operator*(const thread T& c) const {
+        return complex(_x * c, _y * c);
     }
 };
 
@@ -40,18 +42,18 @@ struct jjcomplex
 
 /// Convert a point on the screen to a point in the complex plane.
 template<typename T>
-jjcomplex<T> screenToComplex(T x, T y, T width, T height)
+complex<T> screenToComplex(T x, T y, T width, T height)
 {
     const T scale = max(complexExtentX/width, complexExtentY/height);
     
-    return jjcomplex<T>((x-width/2)*scale, (y-height/2)*scale);
+    return complex<T>((x-width/2)*scale, (y-height/2)*scale);
 }
 
 
 /// Both Mandelbrot and Julia sets use the same iterative algorithm to determine whether
 /// a given point is in the set. Each point is colored based on how quickly it escape to infinity.
 template<typename T>
-float4 colorForIteration(jjcomplex<T> z, jjcomplex<T> c, int maxiters, float escape)
+float4 colorForIteration(complex<T> z, complex<T> c, int maxiters, float escape)
 {
     for (int i = 0; i < maxiters; i++) {
         z = z*z + c;
@@ -80,9 +82,9 @@ kernel void mandelbrotShader(texture2d<float, access::write> output [[texture(0)
     uint height = output.get_height();
     if (upos.x > width || upos.y > height) return;
     
-    jjcomplex<float> z(0, 0);
+    complex<float> z(0, 0);
     
-    jjcomplex<float> c = screenToComplex<float>(upos.x - mandelbrotShiftX*width,
+    complex<float> c = screenToComplex<float>(upos.x - mandelbrotShiftX*width,
                                               upos.y,
                                               width, height);
     
@@ -99,12 +101,14 @@ kernel void juliaShader(texture2d<float, access::write> output [[texture(0)]],
     uint height = output.get_height();
     if (upos.x > width || upos.y > height) return;
     
-    jjcomplex<float> z = screenToComplex<float>(upos.x, upos.y, width, height);
+    complex<float> z = screenToComplex<float>(upos.x, upos.y, width, height);
     
-    jjcomplex<float> c = screenToComplex<float>(screenPoint.x - mandelbrotShiftX*width,
+    complex<float> c = screenToComplex<float>(screenPoint.x - mandelbrotShiftX*width,
                                               screenPoint.y,
                                               width,
                                               height);
     
     output.write(float4(colorForIteration(z, c, 100, 50)), upos);
 }
+
+}  // namespace metalbrot

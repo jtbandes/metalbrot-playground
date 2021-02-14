@@ -37,7 +37,9 @@ let drawingQueue = DispatchQueue(label: "drawingQueue", qos: .userInteractive)
 
 /*:
  ----
- ***Shaders*** are small programs which run on the graphics card. You can find the sources for them in `Shaders.metal` in the left-hand Project navigator (⌘1) under **Resources**. This example uses two shaders, or ***compute kernels***, named `mandelbrotShader` and `juliaShader`. Xcode compiles the shaders into the bitcode representation understood by the graphics card, which we could use through a ***Library***.
+ ***Shaders*** are small programs which run on the graphics card. You can find the sources for them in `Shaders.metal` in the left-hand Project navigator (⌘1) under **Resources**. Xcode precompiles these `.metal` source files into a ***library*** containing a bitcode representation of the shaders, which can later be translated (more quickly than the original sources) into machine code specific to the device.
+
+ This example uses two shaders, or ***compute kernels***, named `mandelbrotShader` and `juliaShader`.
  */
 
 let library = require(device.makeDefaultLibrary(),
@@ -45,14 +47,11 @@ let library = require(device.makeDefaultLibrary(),
 
 /*:
 - Experiment: Open up `Shaders.metal` and glance through it to understand what the shaders are doing.
- 
- 
-- Important: If your shader has a syntax error, `makeLibrary(source:)` will throw an error here when it tries to compile the program.
 */
-let mandelbrotShader = require(library.makeFunction(name: "mandelbrotShader"),
+let mandelbrotShader = require(library.makeFunction(name: "metalbrot::mandelbrotShader"),
                                orDie: "unable to get mandelbrotShader")
 
-let juliaShader = require(library.makeFunction(name: "juliaShader"),
+let juliaShader = require(library.makeFunction(name: "metalbrot::juliaShader"),
                           orDie: "unable to get juliaShader")
 
 //: The Julia set shader also needs some extra input, an *(x, y)* point, from the CPU. We can pass this via a shared buffer.
