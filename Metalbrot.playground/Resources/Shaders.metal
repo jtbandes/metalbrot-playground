@@ -3,6 +3,8 @@ using namespace metal;
 
 #define M_PI 3.141592653589793238462643383
 
+namespace metalbrot {
+
 /// Basic implementation of complex numbers, with * + - operators, and a function to return the squared magnitude.
 template<typename T>
 struct complex
@@ -76,8 +78,8 @@ float4 colorForIteration(complex<T> z, complex<T> c, int maxiters, float escape)
 kernel void mandelbrotShader(texture2d<float, access::write> output [[texture(0)]],
                              uint2 upos [[thread_position_in_grid]])
 {
-    int width = output.get_width();
-    int height = output.get_height();
+    uint width = output.get_width();
+    uint height = output.get_height();
     if (upos.x > width || upos.y > height) return;
     
     complex<float> z(0, 0);
@@ -95,8 +97,8 @@ kernel void juliaShader(texture2d<float, access::write> output [[texture(0)]],
                         uint2 upos [[thread_position_in_grid]],
                         const device float2& screenPoint [[buffer(0)]])
 {
-    int width = output.get_width();
-    int height = output.get_height();
+    uint width = output.get_width();
+    uint height = output.get_height();
     if (upos.x > width || upos.y > height) return;
     
     complex<float> z = screenToComplex<float>(upos.x, upos.y, width, height);
@@ -108,3 +110,5 @@ kernel void juliaShader(texture2d<float, access::write> output [[texture(0)]],
     
     output.write(float4(colorForIteration(z, c, 100, 50)), upos);
 }
+
+}  // namespace metalbrot

@@ -3,7 +3,7 @@ import Cocoa
 import Metal
 
 /// A view which is backed by a CAMetalLayer, automatically updating its drawableSize and contentsScale as appropriate.
-public class MetalView: NSView
+public class MetalView: NSView, NSViewLayerContentScaleDelegate
 {
     @available(*, unavailable) public required init?(coder: NSCoder) { fatalError() }
     
@@ -21,7 +21,7 @@ public class MetalView: NSView
         return metalLayer
     }
     
-    public override func layer(_ layer: CALayer, shouldInheritContentsScale newScale: CGFloat, from window: NSWindow) -> Bool {
+    public func layer(_ layer: CALayer, shouldInheritContentsScale newScale: CGFloat, from window: NSWindow) -> Bool {
         updateDrawableSize(contentsScale: newScale)
         return true
     }
@@ -36,7 +36,7 @@ public class MetalView: NSView
 }
 
 
-public protocol MetalViewDelegate: class
+public protocol MetalViewDelegate: AnyObject
 {
     func metalViewDrawableSizeDidChange(_ metalView: MetalView)
 }
