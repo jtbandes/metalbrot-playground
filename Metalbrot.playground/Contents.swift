@@ -163,8 +163,6 @@ metalView.addSubview(Label(string: "Click me!"), at: CGPoint(x: 5, y: 5))
 
 PlaygroundPage.current.liveView = metalView
 
-controller.viewDidLayout()
-
 /*:
  ----
  ## What Next?
