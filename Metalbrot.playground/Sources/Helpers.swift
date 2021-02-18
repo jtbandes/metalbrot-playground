@@ -103,7 +103,6 @@ public extension MTLCommandQueue
             
             buffer.present(drawable)
             buffer.commit()
-            buffer.waitUntilCompleted()
         }
     }
 }

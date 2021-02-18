@@ -28,15 +28,13 @@ import Metal
  
  To use Metal, we first need access to a connected graphics card (***device***). Since this is a small demo, we’ll prefer a low-power (integrated) graphics card.
  
- We’ll also need a ***command queue*** to let us send commands to the device, and a [dispatch queue](https://developer.apple.com/library/mac/documentation/General/Conceptual/ConcurrencyProgrammingGuide/OperationQueues/OperationQueues.html) on which we’ll send these commands.
+ We’ll also need a ***command queue*** to let us send commands to the device.
  */
 let device = require(MTLCopyAllDevices().first{ $0.isLowPower } ?? MTLCreateSystemDefaultDevice(),
                      orDie: "need a Metal device")
 
 let commandQueue = require(device.makeCommandQueue(),
                            orDie: "need a command queue")
-
-let drawingQueue = DispatchQueue(label: "drawingQueue", qos: .userInteractive)
 
 /*:
  ----
@@ -94,25 +92,21 @@ let metalLayer = metalView.metalLayer
  */
 func drawMandelbrotSet()
 {
-    drawingQueue.async {
-        commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
-            $0.setComputePipelineState(mandelbrotPipelineState)
-        }
+    commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
+        $0.setComputePipelineState(mandelbrotPipelineState)
     }
 }
 
 func drawJuliaSet(_ point: CGPoint)
 {
-    drawingQueue.async {
-        commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
-            $0.setComputePipelineState(juliaPipelineState)
-            
-            // Pass the (x,y) coordinates of the clicked point via the buffer we allocated ahead of time.
-            $0.setBuffer(juliaBuffer, offset: 0, index: 0)
-            let buf = juliaBuffer.contents().bindMemory(to: Float32.self, capacity: 2)
-            buf[0] = Float32(point.x)
-            buf[1] = Float32(point.y)
-        }
+    commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
+        $0.setComputePipelineState(juliaPipelineState)
+
+        // Pass the (x,y) coordinates of the clicked point via the buffer we allocated ahead of time.
+        $0.setBuffer(juliaBuffer, offset: 0, index: 0)
+        let buf = juliaBuffer.contents().bindMemory(to: Float32.self, capacity: 2)
+        buf[0] = Float32(point.x)
+        buf[1] = Float32(point.y)
     }
 }
 /*:
