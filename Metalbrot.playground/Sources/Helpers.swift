@@ -72,7 +72,12 @@ public extension MTLCommandQueue {
   /// presents the results.
   ///
   /// - Requires: `drawBlock` must call `setComputePipelineState` on the command encoder to select a compute function.
-  func computeAndDraw(into drawable: @autoclosure () -> CAMetalDrawable?, with threadgroupSizes: ThreadgroupSizes, drawBlock: (MTLComputeCommandEncoder) -> Void) {
+  func computeAndDraw(
+    into drawable: @autoclosure () -> CAMetalDrawable?,
+    with threadgroupSizes: ThreadgroupSizes,
+    presentedHandler: MTLDrawablePresentedHandler? = nil,
+    drawBlock: (MTLComputeCommandEncoder) -> Void
+  ) {
     if threadgroupSizes.hasZeroDimension {
       print("dimensions are zero; not drawing")
       return
@@ -82,6 +87,9 @@ public extension MTLCommandQueue {
       guard let drawable = drawable() else {
         print("no drawable")
         return
+      }
+      if let presentedHandler = presentedHandler {
+        drawable.addPresentedHandler(presentedHandler)
       }
 
       let buffer = require(self.makeCommandBuffer(),

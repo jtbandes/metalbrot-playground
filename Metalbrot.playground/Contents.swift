@@ -96,8 +96,12 @@ func drawMandelbrotSet() {
   }
 }
 
-func drawJuliaSet(_ point: CGPoint) {
-  commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
+func drawJuliaSet(_ point: CGPoint, presentedHandler: @escaping () -> Void) {
+  commandQueue.computeAndDraw(
+    into: metalLayer.nextDrawable(),
+    with: threadgroupSizes,
+    presentedHandler: { _ in presentedHandler() }
+  ) {
     $0.setComputePipelineState(juliaPipelineState)
 
     // Pass the (x,y) coordinates of the clicked point via the buffer we allocated ahead of time.
@@ -116,6 +120,8 @@ func drawJuliaSet(_ point: CGPoint) {
  Now for some user interaction! Our view controller draws fractals when the view is first laid out, and whenever the mouse is dragged (user interaction requires Xcode 7.3).
  */
 class Controller: NSViewController, MetalViewDelegate {
+  var outstandingDraws = 0
+
   override func viewDidLayout() {
     metalViewDrawableSizeDidChange(metalView)
   }
@@ -136,12 +142,21 @@ class Controller: NSViewController, MetalViewDelegate {
   }
 
   func drawJuliaSetForEvent(_ event: NSEvent) {
+    // Keep track of draw commands that are still in progress, so we don't queue up
+    // more than one per display refresh. (https://stackoverflow.com/q/66254511/23649)
+    if outstandingDraws > 1 {
+      return
+    }
+    outstandingDraws += 1
+
     var pos = metalView.convertToLayer(metalView.convert(event.locationInWindow, from: nil))
     let scale = metalLayer.contentsScale
     pos.x *= scale
     pos.y *= scale
 
-    drawJuliaSet(pos)
+    drawJuliaSet(pos) {
+      self.outstandingDraws -= 1
+    }
   }
 }
 
