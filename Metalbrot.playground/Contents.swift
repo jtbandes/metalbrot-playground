@@ -90,24 +90,22 @@ let metalLayer = metalView.metalLayer
  
  A helper function called `computeAndDraw` in `Helpers.swift` takes care of encoding the commands which execute the shader, and submitting the buffer of encoded commands to the device. All we need to tell it is which pipeline state to use, which texture to draw into, and set up any necessary parameters to the shader functions.
  */
-func drawMandelbrotSet()
-{
-    commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
-        $0.setComputePipelineState(mandelbrotPipelineState)
-    }
+func drawMandelbrotSet() {
+  commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
+    $0.setComputePipelineState(mandelbrotPipelineState)
+  }
 }
 
-func drawJuliaSet(_ point: CGPoint)
-{
-    commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
-        $0.setComputePipelineState(juliaPipelineState)
+func drawJuliaSet(_ point: CGPoint) {
+  commandQueue.computeAndDraw(into: metalLayer.nextDrawable(), with: threadgroupSizes) {
+    $0.setComputePipelineState(juliaPipelineState)
 
-        // Pass the (x,y) coordinates of the clicked point via the buffer we allocated ahead of time.
-        $0.setBuffer(juliaBuffer, offset: 0, index: 0)
-        let buf = juliaBuffer.contents().bindMemory(to: Float32.self, capacity: 2)
-        buf[0] = Float32(point.x)
-        buf[1] = Float32(point.y)
-    }
+    // Pass the (x,y) coordinates of the clicked point via the buffer we allocated ahead of time.
+    $0.setBuffer(juliaBuffer, offset: 0, index: 0)
+    let buf = juliaBuffer.contents().bindMemory(to: Float32.self, capacity: 2)
+    buf[0] = Float32(point.x)
+    buf[1] = Float32(point.y)
+  }
 }
 /*:
  - Experiment:
@@ -117,35 +115,34 @@ func drawJuliaSet(_ point: CGPoint)
  ### The easy part
  Now for some user interaction! Our view controller draws fractals when the view is first laid out, and whenever the mouse is dragged (user interaction requires Xcode 7.3).
  */
-class Controller: NSViewController, MetalViewDelegate
-{
-    override func viewDidLayout() {
-        metalViewDrawableSizeDidChange(metalView)
-    }
-    func metalViewDrawableSizeDidChange(_ metalView: MetalView) {
-        // This helper function chooses how to assign the GPU’s threads to portions of the texture.
-        threadgroupSizes = mandelbrotPipelineState.threadgroupSizesForDrawableSize(metalView.metalLayer.drawableSize)
-        drawMandelbrotSet()
-    }
-    
-    override func mouseDown(with event: NSEvent) {
-        drawJuliaSetForEvent(event)
-    }
-    override func mouseDragged(with event: NSEvent) {
-        drawJuliaSetForEvent(event)
-    }
-    override func mouseUp(with event: NSEvent) {
-        drawMandelbrotSet()
-    }
-    
-    func drawJuliaSetForEvent(_ event: NSEvent) {
-        var pos = metalView.convertToLayer(metalView.convert(event.locationInWindow, from: nil))
-        let scale = metalLayer.contentsScale
-        pos.x *= scale
-        pos.y *= scale
-        
-        drawJuliaSet(pos)
-    }
+class Controller: NSViewController, MetalViewDelegate {
+  override func viewDidLayout() {
+    metalViewDrawableSizeDidChange(metalView)
+  }
+  func metalViewDrawableSizeDidChange(_ metalView: MetalView) {
+    // This helper function chooses how to assign the GPU’s threads to portions of the texture.
+    threadgroupSizes = mandelbrotPipelineState.threadgroupSizesForDrawableSize(metalView.metalLayer.drawableSize)
+    drawMandelbrotSet()
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    drawJuliaSetForEvent(event)
+  }
+  override func mouseDragged(with event: NSEvent) {
+    drawJuliaSetForEvent(event)
+  }
+  override func mouseUp(with event: NSEvent) {
+    drawMandelbrotSet()
+  }
+
+  func drawJuliaSetForEvent(_ event: NSEvent) {
+    var pos = metalView.convertToLayer(metalView.convert(event.locationInWindow, from: nil))
+    let scale = metalLayer.contentsScale
+    pos.x *= scale
+    pos.y *= scale
+
+    drawJuliaSet(pos)
+  }
 }
 
 //: Finally, we can put our view onscreen!
